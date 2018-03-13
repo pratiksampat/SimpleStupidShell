@@ -1,0 +1,3 @@
+# SimpleStupidShell
+
+> Documentation : TODO
