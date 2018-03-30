@@ -5,5 +5,5 @@
 ## Current Working Functionality
 - clear
 - cd
-- ls (-l or -lu) <file/dirname>
-- run executables from the current working directory
+- Run shell commands using execvp
+- piping
