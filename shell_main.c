@@ -78,11 +78,9 @@ int main(){
                         params[paramCount+1] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
                     }  
                 }
-                
-                _flushParams(params);
             }
         }
-        
+        _flushParams(params);
     }
     return 0;
 }

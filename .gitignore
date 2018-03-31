@@ -1,1 +1,3 @@
 shell
+shell_main.o
+shell.o
