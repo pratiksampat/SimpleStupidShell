@@ -4,6 +4,7 @@
         cd
         Run shell commands using execvp
         piping
+        history
 */
 #include "shell.h"
 
@@ -16,6 +17,12 @@ int main(){
     for(int i=0; i<MAX_PARAM_LENGTH; i++){
         params[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
     }
+    char **history;
+    history = (char **)malloc(25 * sizeof(char *));
+    for(int i=0; i<MAX_PARAM_LENGTH; i++){
+        history[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+    }
+    int hisIndex = 0;
     _flushParams(params);
     while(1){
         char *cwd = getcwd(buf,sizeof(buf));
@@ -23,8 +30,10 @@ int main(){
 
         if(fgets(command, sizeof(command), stdin) == NULL) break;
         strtok(command, "\n"); // Remove trailing newline character
-        
-        if(_search(command,'|') == 1){ // Handle piping of commands
+        strcpy(history[hisIndex++],command);
+       	if(hisIndex == 25) 
+       		hisIndex = 0;
+        if(_search(command,'|') == 1 && command[0] != 'h'){ // Handle piping of commands
             split = '|';
             int paramCount = _commandToParams(command,params,split);
             for(int i=1; i<=paramCount; i++){
@@ -57,6 +66,21 @@ int main(){
                 // else if(strcmp(params[0],"ls")==0){
                 //     listDir(params,paramCount);
                 // }
+                else if(strcmp(params[0],"history")==0){
+                	if(paramCount ==0){
+		            	for( int i=0; i<hisIndex; i++){
+				        		printf("[%d] %s\n",i+1,history[i]);
+				        	}
+                	}
+		            else{
+		            	//horrible way to do this but no time
+		            	int index = _searchHis(history,command+15,hisIndex);
+		            	if(index == -1)
+		            		perror("command not found\n");
+		            	else
+		            		printf("[%d] %s\n",index+1,history[index]);
+		            }	
+                }
                 else if(params[0][0] == '\n'){ // just the enter key pressed
                     continue;
                 }

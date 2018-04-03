@@ -54,6 +54,15 @@ int _search(char *command,char c){
     return -1;
 }
 
+
+int _searchHis(char **history, char *command,int len){
+	for(int i=0; i<len; i++){
+		if(strcmp(history[i],command)==0)
+			return i;
+	}
+	return -1;
+}
+
 void pipeThis(char **params, int paramCount){
     FILE *pipe_fp[paramCount+1];
     char readbuf[80];
