@@ -7,7 +7,7 @@ int _commandToParams(char *command, char **params, char split){
     int paramCount = 0;
     int count = 0;
     for(int i=0; i<strlen(command); i++){
-        if(command[i] == split){
+        if(command[i] == split && command[i-1]!=command[i]){
             if(split == ' '){
                 params[paramCount][count] = '\0';
             }
@@ -18,6 +18,10 @@ int _commandToParams(char *command, char **params, char split){
             paramCount++;
             count = 0;
         } 
+        else if( command[i] == split && command[i-1]==command[i]){
+            i++;
+            i--; // WTF? weird does not work if I remove this 
+        }
         else{
             params[paramCount][count] = command[i];
             count++;
@@ -64,6 +68,54 @@ int _searchHis(char **history, char *command,int len){
 }
 
 void pipeThis(char **params, int paramCount){
+    // int i = 0;
+    // // for(int i=0; i<=paramCount; i++){
+    // //     params[i][strlen(params[i])] = '\0';
+    // //     printf("%s %ld\n",params[i],strlen(params[i]));
+    // // }
+    // char **temp ;
+    // temp = (char **)malloc(MAX_PARAM_LENGTH * sizeof(char *));
+    // for(int i=0; i<MAX_PARAM_LENGTH; i++){
+    //     temp[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+    // }
+    // free(params[paramCount+1]);
+    // params[paramCount+1] = NULL;
+
+    // printf("%d\n",paramCount);;
+    // for(i=0; i<paramCount; i++){
+    //     int pd[2];
+    //     pipe(pd);
+    //     _commandToParams(params[i],temp,' ');
+    //     free(temp[paramCount+1]);
+    //     temp[paramCount+1] = NULL;
+    //     if (!fork()) {
+    //         dup2(pd[1], 1); // remap output back to parent
+    //         execvp(temp[0],temp);
+    //         perror("Piping failed here");
+    //         abort();
+    //     }
+    //     dup2(pd[0], 0);
+    //     close(pd[1]);
+    //         temp[paramCount+1] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+
+    //      _flushParams(temp);
+    // }
+    // _commandToParams(params[i],temp,' ');
+    // execvp(temp[0],temp);
+    // perror("Piping Failed");
+    // abort();
+    //  _flushParams(temp);
+    // params[paramCount+1] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+
+
+    //Shabby and buggy but will work I think 
+    int outFlag = -1;
+    FILE *outfd;
+    if(outfile[0]!='\0'){
+        outFlag = 1;
+        outfd = fopen(outfile, "w+");
+    }
+
     FILE *pipe_fp[paramCount+1];
     char readbuf[80];
     // popening the seperated commands and storing them in a pipe_file
@@ -87,13 +139,22 @@ void pipeThis(char **params, int paramCount){
     for(int i=0; i<=paramCount;i++){
         while(fgets(readbuf, 80, pipe_fp[i])){
             fputs(readbuf, pipe_fp[i+1]);
+            if(outFlag == 1){
+                fputs(readbuf,outfd);
+            }
         }
-    
     }
+
+ 
     //close all the pipes
     for(int i=0; i<=paramCount;i++){
         pclose(pipe_fp[i]);
     }
+
+    if(outFlag == 1){
+        pclose(outfd);
+    }
+         
 }
 
 

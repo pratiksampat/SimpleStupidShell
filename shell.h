@@ -10,12 +10,31 @@
 #include <pwd.h>
 #include <grp.h>
 #include <sys/wait.h>
+#include <fcntl.h>
 
 #ifndef SHELL_H
 #define SHELL_H
 #define MAX_COMMAND_LENGTH  64
 #define MAX_PARAM_LENGTH    16
 #define MAX_PIPES           10
+
+#define LINE_SZ 8192 // # of characters allowed per line; We dont allow multi-line commands (yet)
+
+char input_buffer[LINE_SZ]; // Holds each line read in. memset this after every line? 
+
+char infile[1024];
+int infile_set; // Used as boolean flag
+//int in_fd = STDIN_FILENO;
+
+char outfile[1024];
+int outfile_set; // Used as boolean flag
+//int out_fd = STDOUT_FILENO;
+
+int outmode_out;
+int outmode_err;
+int outmode_app;
+
+//char delims[] = " \t";
 
 char buf[MAX_COMMAND_LENGTH]; //Generic buffer used in multiple places
 
