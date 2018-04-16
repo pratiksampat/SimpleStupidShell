@@ -5,6 +5,7 @@
         Run shell commands using execvp
         piping
         history
+        IO redirection
 */
 #include "shell.h"
 
@@ -23,6 +24,7 @@ int main(){
         history[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
     }
     int hisIndex = 0;
+    clr();
     _flushParams(params);
     while(1){
         infile_set = 0;
@@ -34,9 +36,10 @@ int main(){
         strtok(command, "\n"); // Remove trailing newline character
 
 		int input_len = strlen(command);
-		// First check if input file specified
+        if(input_len==1){continue;} // Fix for segFault after 16 empty enters workaround, but figure out what's wrong
+        // First check if input file specified
 		int i = 0;
-		
+
 		while((i < input_len) && (command[i] != '<') ){i++;}
 		
 		// An error handler needs to be added below
@@ -88,17 +91,6 @@ int main(){
 			memset(command+i, ' ', (j-i));
 			//printf("OUTFILE: %s\n", outfile);
 		}
-
-        // int deducted_len = 0;
-        // if(strlen(infile)){
-        //     deducted_len += strlen(infile);
-        //     deducted_len +=2; // one space and a < sign
-        // }if(strlen(outfile)){
-        //     deducted_len += strlen(outfile);
-        //     deducted_len +=2; // one space and a > sign
-        // }
-        // command[deducted_len] = '\0';
-        // printf("Command now is : %s and old is :  %d, new len : %ld\n",command,input_len,strlen(command));
 		i = 0;
 
         strcpy(history[hisIndex++],command);
@@ -114,7 +106,7 @@ int main(){
             // for(int i=0; i<=paramCount; i++){
             //     printf("%s %ld\n",params[i],strlen(params[i]));
             // }
-            pipeThis(params,paramCount);
+            pipeThis(params,paramCount,infile,outfile);
         }
         else{
             split = ' ';
@@ -165,7 +157,8 @@ int main(){
                 else{
                     free(params[paramCount+1]);
                     params[paramCount+1] = NULL;
-                    //printf("Function not implemented yet\n");
+                    if(strcmp(params[0],"env") == 0)
+                        setenv("SHELL","./shell",1);
                     pid_t pid;
                     if(pid=fork() == 0){
                         //child
@@ -196,13 +189,15 @@ int main(){
                     else{
                         wait(0);  
                         params[paramCount+1] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+                        setenv("SHELL","/bin/bash",1);
                     }  
                 }
             }
+            _flushParams(params);
         }
-        _flushParams(params);
         infile[0] = '\0';
         outfile[0] = '\0';
+        command[0] = '\0';
     }
     return 0;
 }

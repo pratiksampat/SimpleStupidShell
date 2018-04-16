@@ -67,94 +67,75 @@ int _searchHis(char **history, char *command,int len){
 	return -1;
 }
 
-void pipeThis(char **params, int paramCount){
-    // int i = 0;
-    // // for(int i=0; i<=paramCount; i++){
-    // //     params[i][strlen(params[i])] = '\0';
-    // //     printf("%s %ld\n",params[i],strlen(params[i]));
-    // // }
-    // char **temp ;
-    // temp = (char **)malloc(MAX_PARAM_LENGTH * sizeof(char *));
-    // for(int i=0; i<MAX_PARAM_LENGTH; i++){
-    //     temp[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
-    // }
-    // free(params[paramCount+1]);
-    // params[paramCount+1] = NULL;
-
-    // printf("%d\n",paramCount);;
-    // for(i=0; i<paramCount; i++){
-    //     int pd[2];
-    //     pipe(pd);
-    //     _commandToParams(params[i],temp,' ');
-    //     free(temp[paramCount+1]);
-    //     temp[paramCount+1] = NULL;
-    //     if (!fork()) {
-    //         dup2(pd[1], 1); // remap output back to parent
-    //         execvp(temp[0],temp);
-    //         perror("Piping failed here");
-    //         abort();
-    //     }
-    //     dup2(pd[0], 0);
-    //     close(pd[1]);
-    //         temp[paramCount+1] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
-
-    //      _flushParams(temp);
-    // }
-    // _commandToParams(params[i],temp,' ');
-    // execvp(temp[0],temp);
-    // perror("Piping Failed");
-    // abort();
-    //  _flushParams(temp);
-    // params[paramCount+1] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
-
-
-    //Shabby and buggy but will work I think 
-    int outFlag = -1;
-    FILE *outfd;
-    if(outfile[0]!='\0'){
-        outFlag = 1;
-        outfd = fopen(outfile, "w+");
-    }
-
-    FILE *pipe_fp[paramCount+1];
-    char readbuf[80];
-    // popening the seperated commands and storing them in a pipe_file
-    for(int i=0; i<=paramCount; i++){
-        if(i==0){
-            if (( pipe_fp[i] = popen(params[i], "r")) == NULL)
-            {
-                perror("popen");
-                exit(1);
-            }
+void pipeThis(char **params, int paramCount, char *infile, char *outfile){
+    if(!fork()){ // This is neccessary as execvp is a system call and we need the control back after it's done
+        char **tempParams;
+        tempParams = (char **)malloc(MAX_PARAM_LENGTH * sizeof(char *));
+        for(int i=0; i<MAX_PARAM_LENGTH; i++){
+            tempParams[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
         }
-        else{
-            if (( pipe_fp[i] = popen(params[i], "w")) == NULL)
-            {
-                perror("popen");
-                exit(1);
-            }
-        }
-    }
-    //Processing the pipes by storing them into a buffer and putting them in the next piped command
-    for(int i=0; i<=paramCount;i++){
-        while(fgets(readbuf, 80, pipe_fp[i])){
-            fputs(readbuf, pipe_fp[i+1]);
-            if(outFlag == 1){
-                fputs(readbuf,outfd);
-            }
-        }
-    }
+        char split = ' ';
+        int outFlag = -1;
+        int inFlag = -1;
+        int outfd;
+        int infd;
+        //Handle all the pipes
+        for(int i=0; i<paramCount; i++){
+            int pd[2];
+            pipe(pd);
+            int tempParamCount = _commandToParams(params[i],tempParams,split);
+            tempParams[tempParamCount + 1] = NULL;
+            if (!fork()) {
+                    dup2(pd[1], 1);
+                    if(outfile[0]!='\0'){
+                        outFlag = 1;
+                        outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+                        dup2(outfd, pd[1]); // output it to a file
+                    }
+                    if(infile[0]!='\0'){
+                        inFlag = 1;
+                        infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+                        dup2(infd, pd[0]);
+                    }
+                    int status = execvp(tempParams[0],tempParams);
+                    if(status == -1){
+                        perror("No such command.");
+                    }
+                    if(outFlag)
+                        close(outfd);
+                    if(inFlag)
+                        close(infd);
+                    wait(0);
 
- 
-    //close all the pipes
-    for(int i=0; i<=paramCount;i++){
-        pclose(pipe_fp[i]);
-    }
+            }
+                dup2(pd[0], 0);
+                close(pd[1]);
 
-    if(outFlag == 1){
-        pclose(outfd);
+        }
+        int tempParamCount = _commandToParams(params[paramCount],tempParams,split);
+        tempParams[tempParamCount + 1] = NULL;;
+        if(outfile[0]!='\0'){
+            outFlag = 1;
+            outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+            dup2(outfd, 1);
+        }
+        if(infile[0]!='\0'){
+            inFlag = 1;
+            infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+            dup2(infd, 0);
+        }
+        int status = execvp(tempParams[0],tempParams);
+        if(status == -1){
+            perror("No such command.");
+        }
+        if(outFlag)
+            close(outfd);
+        if(inFlag)
+            close(infd);
     }
-         
+    else{
+        wait(0);
+    }
 }
 
 

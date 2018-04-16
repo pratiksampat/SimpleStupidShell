@@ -44,7 +44,7 @@ void _flushParams(char **params);
 int _search(char *command,char c);
 int _searchHis(char **history, char *command,int len);
 
-void pipeThis(char **params, int paramCount);
+void pipeThis(char **params, int paramCount, char *infile, char *outfile);
 void _printPerm(struct stat mystat);
 void clr();
 void changeDir(char **params, int paramCount);
