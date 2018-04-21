@@ -11,6 +11,7 @@
 #include <grp.h>
 #include <sys/wait.h>
 #include <fcntl.h>
+#include <sys/time.h>
 
 #ifndef SHELL_H
 #define SHELL_H
@@ -39,11 +40,17 @@ int outmode_app;
 
 char buf[MAX_COMMAND_LENGTH]; //Generic buffer used in multiple places
 
+struct logs{
+	char **input;
+	long *timeTaken;
+	long *user;
+};
+
 int _commandToParams(char *command, char **params, char split);
 void _fixSpaces(char *str);
 void _flushParams(char **params);
 int _search(char *command,char c);
-int _searchHis(char **history, char *command,int len);
+int _searchCommand(char **history, char *command,int len);
 
 void pipeThis(char *command, char **params, int paramCount, char *infile, char *outfile);
 void _printPerm(struct stat mystat);

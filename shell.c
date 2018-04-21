@@ -59,7 +59,7 @@ int _search(char *command,char c){
 }
 
 
-int _searchHis(char **history, char *command,int len){
+int _searchCommand(char **history, char *command,int len){
 	for(int i=0; i<len; i++){
 		if(strcmp(history[i],command)==0)
 			return i;

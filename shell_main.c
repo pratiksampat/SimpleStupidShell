@@ -8,7 +8,12 @@
 		IO redirection
 		Alias 
 			Usage : alias <command to alias> <aliased command>
-					alias show // to show the aliased list
+					alias show // to show the aliased 
+		logs
+			Usage :
+				logs begin
+				logs end
+				logs show
 */
 #include "shell.h"
 
@@ -21,7 +26,12 @@ int main(){
 	char split = ' ';     // Default spilt of commands (' ')
 	int hisIndex = 0;  	 // Index to keep track for the history elements
 	int aliasIndex = 0; // index to keep track of number of aliasted elements
+	int logFlag  = 0; // Flag to check if wished to be logged
+	int logIndex = 0;// Index to keep track for the logs.
 
+	struct timeval stop, start;
+	struct logs myLog;
+	
 	// Can have 10 params of length 64
 	params = (char **)malloc(MAX_PARAM_LENGTH * sizeof(char *));
 	for(int i=0; i<MAX_PARAM_LENGTH; i++){
@@ -45,6 +55,17 @@ int main(){
 	for(int i=0; i<MAX_PARAM_LENGTH; i++){
 		aliasedList[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
 	}
+
+	//Log data for upto 50 commands
+	myLog.input = (char **)malloc(50 * sizeof(char *));
+	for(int i=0; i<MAX_PARAM_LENGTH; i++){
+			myLog.input[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+	}
+
+	myLog.user = (long *)malloc(50 * sizeof(long));
+
+	myLog.timeTaken = (long *)malloc(50 * sizeof(long));
+
 	clr();
 	_flushParams(params);
 	while(1){
@@ -113,20 +134,34 @@ int main(){
 			//printf("OUTFILE: %s\n", outfile);
 		}
 		i = 0;
-		i = _searchHis(aliasedList,command,aliasIndex);
+		i = _searchCommand(aliasedList,command,aliasIndex);
 		if(i!=-1){
 			strcpy(command,originalList[i]);
 		}
-		strcpy(history[hisIndex++],command);
+		strncpy(history[hisIndex++],command,sizeof(command));
 		   if(hisIndex == 25) 
 			   hisIndex = 0;
+
+		if(logFlag){
+			strncpy(myLog.input[logIndex],command,sizeof(command));
+			uid_t u = getuid();
+			myLog.user[logIndex] = u;
+		}
 		if(_search(command,'|') == 1 && strncmp(command,"history",7) != 0 && strncmp(command,"alias",5) != 0  ){ // Handle piping of commands
 			split = '|';
 			int paramCount = _commandToParams(command,params,split);
 			for(int i=1; i<=paramCount; i++){
 				_fixSpaces(params[i]); // Those additional annoying spaces lingering after the | remove them if there
 			}
+			if(logFlag){
+				gettimeofday(&start, NULL);
+			}
 			pipeThis(command,params,paramCount,infile,outfile);
+			if(logFlag){
+				gettimeofday(&stop, NULL);
+				myLog.timeTaken[logIndex] = stop.tv_usec - start.tv_usec;
+				logIndex ++;
+			}
 		}
 		else{
 			split = ' ';
@@ -146,20 +181,20 @@ int main(){
 				// for(int i=0; i<=paramCount; i++){
 				//     printf("[%d] %s\n",i,params[i]);
 				// }
-				if((strcmp(params[0],"clear") == 0 || strcmp(params[0],"cls") == 0) && paramCount == 0){
+				if((strncmp(params[0],"clear",5) == 0 || strncmp(params[0],"cls",3) == 0) && paramCount == 0){
 					clr();
 				}
-				else if(strcmp(params[0],"cd")==0){
+				else if(strncmp(params[0],"cd",2)==0){
 					changeDir(params,paramCount);
 				}
-				else if(strcmp(params[0],"exit")==0){
+				else if(strncmp(params[0],"exit",4)==0){
 					printf("exit\n");
 					exit(0);
 				}
 				// else if(strcmp(params[0],"ls")==0){
 				//     listDir(params,paramCount);
 				// }
-				else if(strcmp(params[0],"history")==0){
+				else if(strncmp(params[0],"history",7)==0){
 					if(paramCount ==0){
 						for( int i=0; i<hisIndex; i++){
 								printf("[%d] %s\n",i+1,history[i]);
@@ -167,14 +202,14 @@ int main(){
 					}
 					else{
 						//Horrible way to do this but no time :/
-						int index = _searchHis(history,command+15,hisIndex);
+						int index = _searchCommand(history,command+15,hisIndex);
 						if(index == -1)
 							perror("command not found\n");
 						else
 							printf("[%d] %s\n",index+1,history[index]);
 					}	
 				}
-				else if(strcmp(params[0],"alias") == 0){
+				else if(strncmp(params[0],"alias",5) == 0){
 					if(aliasIndex == 24){
 						printf("Max Alias Limit Reached\n");
 						continue;
@@ -184,7 +219,7 @@ int main(){
 						continue;
 					}
 					else if(paramCount == 1){
-						if(strcmp(params[1],"show") == 0){
+						if(strncmp(params[1],"show",4) == 0){
 							if(aliasIndex != 0){
 								printf("%15s%15s\n","Original","Aliased");
 								for(int i=0; i<aliasIndex; i++){
@@ -214,7 +249,35 @@ int main(){
 						aliasIndex++;
 					}
 				}
-
+				else if(strncmp(params[0],"logs",3) == 0){
+					if(strncmp(params[1],"begin",5) == 0){
+						if(!logFlag){
+							logFlag = 1;
+							printf("\tLogging \e[32mBegins\n");
+						}
+						else{
+							printf("Already Logging\n");
+						}
+					}
+					else if(strncmp(params[1],"end",3) == 0){
+						logFlag = 0;
+						printf("\tLogging \e[31mEnds\n");
+					}
+					else if(strncmp(params[1],"show",4) == 0){
+						if(logIndex>0){
+							printf("%15s%15s%25s\n","User","Command","Time Taken(ms)");
+							for(int i=0; i<logIndex; i++){
+								printf("%15ld%25s%15ld\n",myLog.user[i],myLog.input[i],myLog.timeTaken[i]);
+							}
+						}
+						else{
+							printf("No logs to show.\n");
+						}
+					}
+					else{
+						printf("Invalid Usage of logs\n");
+					}
+				}
 				else if(params[0][0] == '\n'){ // just the enter key pressed
 					continue;
 				}
@@ -229,8 +292,11 @@ int main(){
 				else{
 					free(params[paramCount+1]);
 					params[paramCount+1] = NULL;
-					if(strcmp(params[0],"env") == 0)
+					if(strncmp(params[0],"env",3) == 0)
 						setenv("SHELL","./shell",1);
+					if(logFlag){
+						gettimeofday(&start, NULL);
+					}
 					pid_t pid;
 					if(pid=fork() == 0){
 						//child
@@ -276,6 +342,11 @@ int main(){
 					}
 					else{
 						wait(0);  
+						if(logFlag){
+							gettimeofday(&stop, NULL);
+							myLog.timeTaken[logIndex] = stop.tv_usec - start.tv_usec;
+							logIndex ++;
+						}
 						params[paramCount+1] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
 						setenv("SHELL","/bin/bash",1);
 					}  
