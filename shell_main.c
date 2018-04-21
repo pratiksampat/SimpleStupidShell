@@ -1,43 +1,64 @@
 /*
-    Functionality implemted :
-        clear
-        cd
-        Run shell commands using execvp
-        piping
-        history
-        IO redirection
+	Functionality implemted :
+		clear
+		cd
+		Run shell commands using execvp
+		piping
+		history
+		IO redirection
+		Alias 
+			Usage : alias <command to alias> <aliased command>
+					alias show // to show the aliased list
 */
 #include "shell.h"
 
 int main(){
-    char command[MAX_COMMAND_LENGTH];
-    char **params ;
-    char split = ' ';
-    // Can have 10 params of length 1024
-    params = (char **)malloc(MAX_PARAM_LENGTH * sizeof(char *));
-    for(int i=0; i<MAX_PARAM_LENGTH; i++){
-        params[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
-    }
-    char **history;
-    history = (char **)malloc(25 * sizeof(char *));
-    for(int i=0; i<MAX_PARAM_LENGTH; i++){
-        history[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
-    }
-    int hisIndex = 0;
-    clr();
-    _flushParams(params);
-    while(1){
-        infile_set = 0;
-		outfile_set = 0;
-        char *cwd = getcwd(buf,sizeof(buf));
-        printf("\e[34m%s:\e[32m$\e[37m ",cwd); // A little overboard with colors I think?
+	char command[MAX_COMMAND_LENGTH];	// Command entered by the user
+	char **params ;			  //Array of strings to store the split the command for processing 
+	char **history;		   	 //Store the history
+	char **originalList;  	// Array of strings to keep track of the original unaliased version
+	char **aliasedList;	   // Array of strings to keep track of the original unaliased version
+	char split = ' ';     // Default spilt of commands (' ')
+	int hisIndex = 0;  	 // Index to keep track for the history elements
+	int aliasIndex = 0; // index to keep track of number of aliasted elements
 
-        if(fgets(command, sizeof(command), stdin) == NULL) break;
-        strtok(command, "\n"); // Remove trailing newline character
+	// Can have 10 params of length 64
+	params = (char **)malloc(MAX_PARAM_LENGTH * sizeof(char *));
+	for(int i=0; i<MAX_PARAM_LENGTH; i++){
+		params[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+	}
+
+	//Can have 25 commands each of length 64
+	history = (char **)malloc(25 * sizeof(char *));
+	for(int i=0; i<MAX_PARAM_LENGTH; i++){
+		history[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+	}
+
+	//Can have 25 commands each of length 64
+	originalList = (char **)malloc(25 * sizeof(char *));
+	for(int i=0; i<MAX_PARAM_LENGTH; i++){
+		originalList[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+	}
+	
+	//Can have 25 commands each of length 64
+	aliasedList = (char **)malloc(25 * sizeof(char *));
+	for(int i=0; i<MAX_PARAM_LENGTH; i++){
+		aliasedList[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+	}
+	clr();
+	_flushParams(params);
+	while(1){
+		infile_set = 0;
+		outfile_set = 0;
+		char *cwd = getcwd(buf,sizeof(buf));
+		printf("\e[32m%s:\e[34m$\e[37m ",cwd); // A little overboard with colors I think?
+
+		if(fgets(command, sizeof(command), stdin) == NULL) break;
+		strtok(command, "\n"); // Remove trailing newline character
 
 		int input_len = strlen(command);
-        if(input_len==1){continue;} // Fix for segFault after 16 empty enters workaround, but figure out what's wrong
-        // First check if input file specified
+		if(input_len==1){continue;} // Fix for segFault after 16 empty enters workaround, but figure out what's wrong
+		// First check if input file specified
 		int i = 0;
 
 		while((i < input_len) && (command[i] != '<') ){i++;}
@@ -57,7 +78,7 @@ int main(){
 			// The infile path now lies between [i, j[, its length is (j-i)
 			
 			strncpy(infile, command + i, (j-i)); // memset here???
-			memset(command+i, ' ', (j-i));
+			memset(command+i, '\0', (j-i));
 
 		}
 		//printf("INFILE: %s\n", infile);
@@ -88,117 +109,184 @@ int main(){
 			
 
 			strncpy(outfile, command + i, (j-i)); // memset here???
-			memset(command+i, ' ', (j-i));
+			memset(command+i, '\0', (j-i));
 			//printf("OUTFILE: %s\n", outfile);
 		}
 		i = 0;
+		i = _searchHis(aliasedList,command,aliasIndex);
+		if(i!=-1){
+			strcpy(command,originalList[i]);
+		}
+		strcpy(history[hisIndex++],command);
+		   if(hisIndex == 25) 
+			   hisIndex = 0;
+		if(_search(command,'|') == 1 && strncmp(command,"history",7) != 0 && strncmp(command,"alias",5) != 0  ){ // Handle piping of commands
+			split = '|';
+			int paramCount = _commandToParams(command,params,split);
+			for(int i=1; i<=paramCount; i++){
+				_fixSpaces(params[i]); // Those additional annoying spaces lingering after the | remove them if there
+			}
+			pipeThis(command,params,paramCount,infile,outfile);
+		}
+		else{
+			split = ' ';
+			if(command[strlen(command)-1]==' '){
+				command[strlen(command)-1] = '\0'; // Fixing the extra space issue
+			}
+			int paramCount = _commandToParams(command,params,split);
+			if(infile[0]!='\0' || outfile[0]!='\0'){
+				paramCount --; // handling an edge case in case of io redirection
+			}
+			if(paramCount < 0){
+				continue;
+			}
+			else{
+				//printf("Total Number of parameters : %d\n",paramCount);
+				//printf("The parameters are : \n");
+				// for(int i=0; i<=paramCount; i++){
+				//     printf("[%d] %s\n",i,params[i]);
+				// }
+				if((strcmp(params[0],"clear") == 0 || strcmp(params[0],"cls") == 0) && paramCount == 0){
+					clr();
+				}
+				else if(strcmp(params[0],"cd")==0){
+					changeDir(params,paramCount);
+				}
+				else if(strcmp(params[0],"exit")==0){
+					printf("exit\n");
+					exit(0);
+				}
+				// else if(strcmp(params[0],"ls")==0){
+				//     listDir(params,paramCount);
+				// }
+				else if(strcmp(params[0],"history")==0){
+					if(paramCount ==0){
+						for( int i=0; i<hisIndex; i++){
+								printf("[%d] %s\n",i+1,history[i]);
+							}
+					}
+					else{
+						//Horrible way to do this but no time :/
+						int index = _searchHis(history,command+15,hisIndex);
+						if(index == -1)
+							perror("command not found\n");
+						else
+							printf("[%d] %s\n",index+1,history[index]);
+					}	
+				}
+				else if(strcmp(params[0],"alias") == 0){
+					if(aliasIndex == 24){
+						printf("Max Alias Limit Reached\n");
+						continue;
+					}
+					if(paramCount == 0){
+						printf("Invalid Usage of command\nUsage :\n\t alias <original> <alias>\n\t alias show\n");
+						continue;
+					}
+					else if(paramCount == 1){
+						if(strcmp(params[1],"show") == 0){
+							if(aliasIndex != 0){
+								printf("%15s%15s\n","Original","Aliased");
+								for(int i=0; i<aliasIndex; i++){
+									printf("%15s%15s\n",originalList[i],aliasedList[i]);
+								}
+							}
+							else{
+								printf("Empty List\n");
+							}
 
-        strcpy(history[hisIndex++],command);
-       	if(hisIndex == 25) 
-       		hisIndex = 0;
-        // The comparision with h is an offense must not do it!! but with lack of time and motivation in life :/
-        if(_search(command,'|') == 1 && command[0] != 'h'){ // Handle piping of commands
-            split = '|';
-            int paramCount = _commandToParams(command,params,split);
-            for(int i=1; i<=paramCount; i++){
-                _fixSpaces(params[i]); // Those additional annoying spaces lingering after the | remove them if there
-            }
-            // for(int i=0; i<=paramCount; i++){
-            //     printf("%s %ld\n",params[i],strlen(params[i]));
-            // }
-            pipeThis(params,paramCount,infile,outfile);
-        }
-        else{
-            split = ' ';
-            int paramCount = _commandToParams(command,params,split);
-            if(infile[0]!='\0' || outfile[0]!='\0'){
-                paramCount --; // handling an edge case in case of io redirection
-            }
-            if(paramCount < 0){
-                continue;
-            }
-            else{
-                //printf("Total Number of parameters : %d\n",paramCount);
-                //printf("The parameters are : \n");
-                // for(int i=0; i<=paramCount; i++){
-                //     printf("[%d] %s\n",i,params[i]);
-                // }
-                if((strcmp(params[0],"clear") == 0 || strcmp(params[0],"cls") == 0) && paramCount == 0){
-                    clr();
-                }
-                else if(strcmp(params[0],"cd")==0){
-                    changeDir(params,paramCount);
-                }
-                else if(strcmp(params[0],"exit")==0){
-                    printf("exit\n");
-                    exit(0);
-                }
-                // else if(strcmp(params[0],"ls")==0){
-                //     listDir(params,paramCount);
-                // }
-                else if(strcmp(params[0],"history")==0){
-                	if(paramCount ==0){
-		            	for( int i=0; i<hisIndex; i++){
-				        		printf("[%d] %s\n",i+1,history[i]);
-				        	}
-                	}
-		            else{
-		            	//horrible way to do this but no time :/
-		            	int index = _searchHis(history,command+15,hisIndex);
-		            	if(index == -1)
-		            		perror("command not found\n");
-		            	else
-		            		printf("[%d] %s\n",index+1,history[index]);
-		            }	
-                }
-                else if(params[0][0] == '\n'){ // just the enter key pressed
-                    continue;
-                }
-                else{
-                    free(params[paramCount+1]);
-                    params[paramCount+1] = NULL;
-                    if(strcmp(params[0],"env") == 0)
-                        setenv("SHELL","./shell",1);
-                    pid_t pid;
-                    if(pid=fork() == 0){
-                        //child
-                        int outFlag = -1;
-                        int inFlag = -1;
-                        int outfd;
-                        int infd;
-                        if(outfile[0]!='\0'){
-                            outFlag = 1;
-                            outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-                            dup2(outfd, 1);
-                        }
-                        if(infile[0]!='\0'){
-                            inFlag = 1;
-                            infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-                            dup2(infd, 0);
-                        }
+						}
+						else{
+							printf("Invalid Usage of command\n");
+							continue;
+						}
+					}
+					else{
+						char *temp = (char *)malloc(64 * sizeof(char));
+						for(int i=1; i<paramCount; i++){
+							strcat(temp,params[i]);
+							strcat(temp," ");
+						}
+						strcpy(originalList[aliasIndex],temp);
+						strcpy(aliasedList[aliasIndex],params[paramCount]);
+						printf("%15s%15s\n","Original","Aliased");
+						printf("%15s%15s\n",originalList[aliasIndex],aliasedList[aliasIndex]);
+						aliasIndex++;
+					}
+				}
 
-                        int status = execvp(params[0],params);
-                        if(status ==  -1){
-                            perror("Command not found");
-                        }
-                        if(outFlag)
-                            close(outfd);
-                        if(inFlag)
-                            close(infd);
-                    }
-                    else{
-                        wait(0);  
-                        params[paramCount+1] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
-                        setenv("SHELL","/bin/bash",1);
-                    }  
-                }
-            }
-            _flushParams(params);
-        }
-        infile[0] = '\0';
-        outfile[0] = '\0';
-        command[0] = '\0';
-    }
-    return 0;
+				else if(params[0][0] == '\n'){ // just the enter key pressed
+					continue;
+				}
+				// else if(strcmp(params[0],"editor") == 0){
+				//     if(!fork()){
+				//         execvp(params[0],params);
+				//     }
+				//     else{
+				//         wait(0);
+				//     }
+				// }
+				else{
+					free(params[paramCount+1]);
+					params[paramCount+1] = NULL;
+					if(strcmp(params[0],"env") == 0)
+						setenv("SHELL","./shell",1);
+					pid_t pid;
+					if(pid=fork() == 0){
+						//child
+						int outFlag = 0;
+						int inFlag = 0;
+						int outfd;
+						int infd;
+						int tempfd;
+						if(outfile[0]!='\0'){
+							outFlag = 1;
+							outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+							dup2(outfd, 1);
+						}
+						if(infile[0]!='\0'){
+							inFlag = 1;
+							infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+							dup2(infd, 0);
+						}
+						 if(!fork()){ //write to a temporary file will be used for network comm
+							tempfd = open(".temp", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+							write(tempfd,"Given command : ",16);
+							write(tempfd, command, input_len);
+							write(tempfd,"\n",1);
+							dup2(tempfd, 1);
+						}
+						else{
+							wait(0);
+						}
+						// for(int i=0; i<=paramCount ; i++){
+						//     printf("%s\n",params[i]);
+						// }
+						//printf("%s\n",params[paramCount+1]);
+						//params[paramCount+1] = NULL;
+						int status = execvp(params[0],params);
+						if(status ==  -1){
+							perror("Command not found");
+						}
+						if(outFlag)
+							close(outfd);
+						if(inFlag)
+							close(infd);
+						close(tempfd);
+					}
+					else{
+						wait(0);  
+						params[paramCount+1] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+						setenv("SHELL","/bin/bash",1);
+					}  
+				}
+			}
+			_flushParams(params);
+		}
+		infile[0] = '\0';
+		outfile[0] = '\0';
+		command[0] = '\0';
+	}
+	return 0;
 }
 

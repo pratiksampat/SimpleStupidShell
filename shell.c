@@ -4,58 +4,58 @@
 //Note : for extraction the command is at params[0] the parameters start after that
 
 int _commandToParams(char *command, char **params, char split){
-    int paramCount = 0;
-    int count = 0;
-    for(int i=0; i<strlen(command); i++){
-        if(command[i] == split && command[i-1]!=command[i]){
-            if(split == ' '){
-                params[paramCount][count] = '\0';
-            }
-            else if(split == '|'){
-                count--;
-                params[paramCount][count] = '\0'; 
-            }
-            paramCount++;
-            count = 0;
-        } 
-        else if( command[i] == split && command[i-1]==command[i]){
-            i++;
-            i--; // WTF? weird does not work if I remove this 
-        }
-        else{
-            params[paramCount][count] = command[i];
-            count++;
-        }
-    }
-    return paramCount;
+	int paramCount = 0;
+	int count = 0;
+	for(int i=0; i<strlen(command); i++){
+		if(command[i] == split && command[i-1]!=command[i]){
+			if(split == ' '){
+				params[paramCount][count] = '\0';
+			}
+			else if(split == '|'){
+				count--;
+				params[paramCount][count] = '\0'; 
+			}
+			paramCount++;
+			count = 0;
+		} 
+		else if( command[i] == split && command[i-1]==command[i]){
+			i++;
+			i--; // WTF? weird does not work if I remove this 
+		}
+		else{
+			params[paramCount][count] = command[i];
+			count++;
+		}
+	}
+	return paramCount;
 }
 
 void _fixSpaces(char *str){
-    if(str[0]!=' '){
-        return;
-    }
-    int i;
-    for(i=1; i<strlen(str); i++){
-        str[i-1]= str[i]; // Just move all the characters one behind
-    }
-    str[i-1] = '\0';
+	if(str[0]!=' '){
+		return;
+	}
+	int i;
+	for(i=1; i<strlen(str); i++){
+		str[i-1]= str[i]; // Just move all the characters one behind
+	}
+	str[i-1] = '\0';
 }
 
 void _flushParams(char **params){
-    //memset didn't work, so iterating through all :(
-    for(int i=0; i<MAX_PARAM_LENGTH;i++){
-        for(int j=0; j<MAX_COMMAND_LENGTH;j++){
-            params[i][j] = '\0';
-        }
-    }
+	//memset didn't work, so iterating through all :(
+	for(int i=0; i<MAX_PARAM_LENGTH;i++){
+		for(int j=0; j<MAX_COMMAND_LENGTH;j++){
+			params[i][j] = '\0';
+		}
+	}
 }
 
 int _search(char *command,char c){
-    for(int i=0; i<strlen(command); i++){
-        if(command[i] == c)
-            return 1;
-    }
-    return -1;
+	for(int i=0; i<strlen(command); i++){
+		if(command[i] == c)
+			return 1;
+	}
+	return -1;
 }
 
 
@@ -67,89 +67,115 @@ int _searchHis(char **history, char *command,int len){
 	return -1;
 }
 
-void pipeThis(char **params, int paramCount, char *infile, char *outfile){
-    if(!fork()){ // This is neccessary as execvp is a system call and we need the control back after it's done
-        char **tempParams;
-        tempParams = (char **)malloc(MAX_PARAM_LENGTH * sizeof(char *));
-        for(int i=0; i<MAX_PARAM_LENGTH; i++){
-            tempParams[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
-        }
-        char split = ' ';
-        int outFlag = -1;
-        int inFlag = -1;
-        int outfd;
-        int infd;
-        //Handle all the pipes
-        for(int i=0; i<paramCount; i++){
-            int pd[2];
-            pipe(pd);
-            int tempParamCount = _commandToParams(params[i],tempParams,split);
-            tempParams[tempParamCount + 1] = NULL;
-            if (!fork()) {
-                    dup2(pd[1], 1);
-                    if(outfile[0]!='\0'){
-                        outFlag = 1;
-                        outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-                        dup2(outfd, pd[1]); // output it to a file
-                    }
-                    if(infile[0]!='\0'){
-                        inFlag = 1;
-                        infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-                        dup2(infd, pd[0]);
-                    }
-                    int status = execvp(tempParams[0],tempParams);
-                    if(status == -1){
-                        perror("No such command.");
-                    }
-                    if(outFlag)
-                        close(outfd);
-                    if(inFlag)
-                        close(infd);
-                    wait(0);
-
-            }
-                dup2(pd[0], 0);
-                close(pd[1]);
-
-        }
-        int tempParamCount = _commandToParams(params[paramCount],tempParams,split);
-        tempParams[tempParamCount + 1] = NULL;;
-        if(outfile[0]!='\0'){
-            outFlag = 1;
-            outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-            dup2(outfd, 1);
-        }
-        if(infile[0]!='\0'){
-            inFlag = 1;
-            infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
-            dup2(infd, 0);
-        }
-        int status = execvp(tempParams[0],tempParams);
-        if(status == -1){
-            perror("No such command.");
-        }
-        if(outFlag)
-            close(outfd);
-        if(inFlag)
-            close(infd);
-    }
-    else{
-        wait(0);
-    }
+void pipeThis(char *command, char **params, int paramCount, char *infile, char *outfile){
+	int flag = -1;
+	char **tempParams;
+	tempParams = (char **)malloc(MAX_PARAM_LENGTH * sizeof(char *));
+	for(int i=0; i<MAX_PARAM_LENGTH; i++){
+		tempParams[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+	}
+	// for(int i=0; i<paramCount;i++){
+	// 	printf("~%s~\n",params[i]);
+	// }
+	// printf("~~~~~~~~~~~~~~~~\n");
+	if(flag==1 && !fork()){ // This is neccessary as execvp is a system call and we need the control back after it's done
+		char split = ' ';
+		int outFlag = 0;
+		int inFlag = 0;
+		int outfd;
+		int infd;
+		//Handle all the pipes
+		for(int i=0; i<paramCount; i++){
+			int pd[2];
+			pipe(pd);
+			int tempParamCount = _commandToParams(params[i],tempParams,split);
+			tempParams[tempParamCount+1] = NULL;
+			// printf("INNER TPC: %d\n", tempParamCount);
+			// for(int i=0; i<=tempParamCount;i++){
+			// 	printf("~%s~\n",tempParams[i]);
+			// }
+			if (!fork()) {
+					dup2(pd[1], 1);
+					if(outfile[0]!='\0'){
+						perror("OUT\n");
+						outFlag = 1;
+						outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+						dup2(outfd, pd[1]); // output it to a file
+					}
+					if(infile[0]!='\0'){
+						perror("IN\n");
+						inFlag = 1;
+						infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+						dup2(infd, pd[0]);
+					}
+					int status = execvp(tempParams[0],tempParams);
+					if(status == -1){
+						perror("No such command.");
+					}
+					if(outFlag)
+						close(outfd);
+					if(inFlag)
+						close(infd);
+				
+			}
+			else{
+				wait(0);
+				dup2(pd[0], 0);
+				close(pd[1]);
+			}
+			
+		}
+		// _flushParams(tempParams);
+		int tempParamCount = _commandToParams(params[paramCount],tempParams,split);
+		tempParams[tempParamCount] = NULL;
+		//printf("TPC: %d\n", tempParamCount);
+		// printf("~~~~~~~~~~~~~~~~\n");
+		// for(int i=0; i<tempParamCount;i++){
+		// 		printf("~%s~\n",tempParams[i]);
+		// }
+		if(outfile[0]!='\0'){
+			outFlag = 1;
+			outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+			dup2(outfd, 1);
+		}
+		if(infile[0]!='\0'){
+			inFlag = 1;
+			infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+			dup2(infd, 0);
+		}
+		int status = execvp(tempParams[0],tempParams);
+		if(status == -1){
+			perror("No such command.");
+		}
+		if(outFlag)
+			close(outfd);
+		if(inFlag)
+			close(infd);
+	}
+	else{
+		wait(0);
+	}
+	if(flag == -1){
+		call(command);
+	}
+	_flushParams(params);
 }
 
-
 void _printPerm(struct stat mystat){
-    printf((S_ISDIR(mystat.st_mode)) ? "d" : "-");
-    printf((mystat.st_mode & S_IRUSR) ? "r" : "-");
-    printf((mystat.st_mode & S_IWUSR) ? "w" : "-");
-    printf((mystat.st_mode & S_IXUSR) ? "x" : "-");
-    printf((mystat.st_mode & S_IRGRP) ? "r" : "-");
-    printf((mystat.st_mode & S_IWGRP) ? "w" : "-");
-    printf((mystat.st_mode & S_IXGRP) ? "x" : "-");
-    printf((mystat.st_mode & S_IROTH) ? "r" : "-");
-    printf((mystat.st_mode & S_IWOTH) ? "w" : "-");
-    printf((mystat.st_mode & S_IXOTH) ? "x" : "-");
+	printf((S_ISDIR(mystat.st_mode)) ? "d" : "-");
+	printf((mystat.st_mode & S_IRUSR) ? "r" : "-");
+	printf((mystat.st_mode & S_IWUSR) ? "w" : "-");
+	printf((mystat.st_mode & S_IXUSR) ? "x" : "-");
+	printf((mystat.st_mode & S_IRGRP) ? "r" : "-");
+	printf((mystat.st_mode & S_IWGRP) ? "w" : "-");
+	printf((mystat.st_mode & S_IXGRP) ? "x" : "-");
+	printf((mystat.st_mode & S_IROTH) ? "r" : "-");
+	printf((mystat.st_mode & S_IWOTH) ? "w" : "-");
+	printf((mystat.st_mode & S_IXOTH) ? "x" : "-");
+}
+
+void call(char *command){
+	CALL(command);
 }
 
 /********************************************************/
@@ -157,30 +183,30 @@ void _printPerm(struct stat mystat){
 /********************************************************/
 
 void clr(){
-    printf("\e[1;1H\e[2J"); // Got this from SO. works!👍
+	printf("\e[1;1H\e[2J"); // Got this from SO. works!👍
 }
 
 void changeDir(char **params, int paramCount){
-    int success;
-    if(paramCount == 1){
-        success = chdir(params[1]);
-        if(success == -1){
-            perror("cd Error");
-        }
-    }
-    else if(paramCount == 0){
-        success = chdir("/home");
-        if(success == -1){
-            perror("cd Error");
-        }
-    }
-    else{
-        perror("Invalid usage of command :");
-    }
+	int success;
+	if(paramCount == 1){
+		success = chdir(params[1]);
+		if(success == -1){
+			perror("cd Error");
+		}
+	}
+	else if(paramCount == 0){
+		success = chdir("/home");
+		if(success == -1){
+			perror("cd Error");
+		}
+	}
+	else{
+		perror("Invalid usage of command :");
+	}
 }
 
 
-    // Commented out this implimentation as got execvp to work - may come back to this for regex (maybe not)
+	// Commented out this implimentation as got execvp to work - may come back to this for regex (maybe not)
 // void listDir(char **params, int paramCount){
 //     DIR *dir;
 //     struct dirent *dp;
@@ -206,7 +232,7 @@ void changeDir(char **params, int paramCount){
 //             while ((dp=readdir(dir)) != NULL) {
 //                 if(dp->d_name[0]!='.'){ //  takes care of . , .. and hidden files
 //                     stat(dp->d_name,&mystat);
-                    
+					
 //                     struct passwd *pw = getpwuid(mystat.st_uid);
 //                     struct group  *gr = getgrgid(mystat.st_gid);
 //                     char *mtime;
@@ -215,7 +241,7 @@ void changeDir(char **params, int paramCount){
 //                     else if(strcmp(params[1],"-lu") == 0)
 //                         mtime = ctime(&mystat.st_atime);
 //                     strtok(mtime, "\n");
-                    
+					
 //                     if(params[2][0]!='\0'){
 //                         if(strcmp(dp->d_name,params[2]) == 0){
 //                             _printPerm(mystat);

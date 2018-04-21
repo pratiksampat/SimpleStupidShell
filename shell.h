@@ -20,6 +20,7 @@
 
 #define LINE_SZ 8192 // # of characters allowed per line; We dont allow multi-line commands (yet)
 
+#define CALL system
 char input_buffer[LINE_SZ]; // Holds each line read in. memset this after every line? 
 
 char infile[1024];
@@ -44,9 +45,10 @@ void _flushParams(char **params);
 int _search(char *command,char c);
 int _searchHis(char **history, char *command,int len);
 
-void pipeThis(char **params, int paramCount, char *infile, char *outfile);
+void pipeThis(char *command, char **params, int paramCount, char *infile, char *outfile);
 void _printPerm(struct stat mystat);
 void clr();
 void changeDir(char **params, int paramCount);
+void call(char *command);
 
 #endif
