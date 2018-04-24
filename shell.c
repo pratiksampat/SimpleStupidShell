@@ -207,67 +207,109 @@ void changeDir(char **params, int paramCount){
 
 
 	// Commented out this implimentation as got execvp to work - may come back to this for regex (maybe not)
-// void listDir(char **params, int paramCount){
-//     DIR *dir;
-//     struct dirent *dp;
-//     struct stat mystat;
-//     char *cwd = getcwd(buf,sizeof(buf));
-//     dir = opendir(cwd);
-//     if(paramCount == 0){
-//         int count = 0;
-//         while ((dp=readdir(dir)) != NULL) {
-//             if(dp->d_name[0]!='.'){
-//                 count ++;
-//                 printf("%s\t\t",dp->d_name);
-//             }
-//             if(count==3){
-//                 printf("\n");
-//                 count = 0;
-//             }
-//         }
-//         printf("\n");
-//     }
-//     else if(paramCount >= 1){
-//         if(strcmp(params[1],"-l") == 0 || strcmp(params[1],"-lu") == 0 ){
-//             while ((dp=readdir(dir)) != NULL) {
-//                 if(dp->d_name[0]!='.'){ //  takes care of . , .. and hidden files
-//                     stat(dp->d_name,&mystat);
+void listDir(char **params, int paramCount){
+    DIR *dir;
+    struct dirent *dp;
+    struct stat mystat;
+    char *cwd = getcwd(buf,sizeof(buf));
+    dir = opendir(cwd);
+    if(paramCount == 0){
+        int count = 0;
+        while ((dp=readdir(dir)) != NULL) {
+            if(dp->d_name[0]!='.'){
+                count ++;
+                printf("%s\t",dp->d_name);
+            }
+            // if(count==3){
+            //     printf("\n");
+            //     count = 0;
+            // }
+        }
+        printf("\n");
+    }
+    else if(paramCount >= 1){
+        if(strcmp(params[1],"-l") == 0 || strcmp(params[1],"-lu") == 0 ){
+            while ((dp=readdir(dir)) != NULL) {
+                if(dp->d_name[0]!='.'){ //  takes care of . , .. and hidden files
+                    stat(dp->d_name,&mystat);
 					
-//                     struct passwd *pw = getpwuid(mystat.st_uid);
-//                     struct group  *gr = getgrgid(mystat.st_gid);
-//                     char *mtime;
-//                     if(strcmp(params[1],"-l") == 0)
-//                         mtime = ctime(&mystat.st_mtime);
-//                     else if(strcmp(params[1],"-lu") == 0)
-//                         mtime = ctime(&mystat.st_atime);
-//                     strtok(mtime, "\n");
+                    struct passwd *pw = getpwuid(mystat.st_uid);
+                    struct group  *gr = getgrgid(mystat.st_gid);
+                    char *mtime;
+                    if(strcmp(params[1],"-l") == 0)
+                        mtime = ctime(&mystat.st_mtime);
+                    else if(strcmp(params[1],"-lu") == 0)
+                        mtime = ctime(&mystat.st_atime);
+                    strtok(mtime, "\n");
 					
-//                     if(params[2][0]!='\0'){
-//                         if(strcmp(dp->d_name,params[2]) == 0){
-//                             _printPerm(mystat);
-//                             printf(" %ld %s %s %ld %s %s",mystat.st_nlink,pw->pw_name,gr->gr_name,mystat.st_size,mtime,dp->d_name);
-//                             break;
-//                         }
-//                     }
-//                     else{
-//                         _printPerm(mystat);
-//                         printf(" %ld %s %s %ld %s %s",mystat.st_nlink,pw->pw_name,gr->gr_name,mystat.st_size,mtime,dp->d_name);
+                    if(params[2][0]!='\0'){
+                        if(wildMatch(dp->d_name,params[2],strlen(dp->d_name),strlen(params[2])) == 1){
+                            _printPerm(mystat);
+                            printf(" %ld %s %s %ld %s %s\n",mystat.st_nlink,pw->pw_name,gr->gr_name,mystat.st_size,mtime,dp->d_name);
+                        }
+                    }
+                    else{
+                        _printPerm(mystat);
+                        printf(" %ld %s %s %ld %s %s\n",mystat.st_nlink,pw->pw_name,gr->gr_name,mystat.st_size,mtime,dp->d_name);
 
-//                     }
-//                     printf("\n");
-//                 }
-//             }
-//             printf("\n");
-//         }
-//         else{
-//             while ((dp=readdir(dir)) != NULL) {
-//                 if(dp->d_name[0]!='.'){
-//                     if(strcmp(dp->d_name,params[1]) == 0){
-//                         printf("%s",dp->d_name);
-//                     }
-//                 }
-//             }
-//             printf("\n");
-//         }
-//     }
-// }
+                    }
+                }
+            }
+            printf("\n");
+        }
+        else{
+            while ((dp=readdir(dir)) != NULL) {
+                if(dp->d_name[0]!='.'){
+                    if(wildMatch(dp->d_name,params[1],strlen(dp->d_name),strlen(params[1])) == 1){
+                        printf("%s\n",dp->d_name);
+                    }
+                }
+            }
+        }
+    }
+}
+
+int wildMatch(char *str, char *pattern, int n, int m){
+	if(m==0){
+		return n==0;
+	}
+	int lookup[n+1][m+1];
+	memset(lookup, 0, sizeof(lookup));
+
+	lookup[0][0] = 1;
+	// Only '*' can match with empty string
+	for (int j = 1; j <= m; j++){
+		if (pattern[j - 1] == '*')
+        	lookup[0][j] = lookup[0][j - 1];
+	}
+	// fill the table in bottom-up fashion
+    for (int i = 1; i <= n; i++)
+    {
+        for (int j = 1; j <= m; j++)
+        {
+            // Two cases if we see a '*'
+            // a) We ignore ‘*’ character and move
+            //    to next  character in the pattern,
+            //     i.e., ‘*’ indicates an empty sequence.
+            // b) '*' character matches with ith
+            //     character in input
+            if (pattern[j - 1] == '*')
+                lookup[i][j] = lookup[i][j - 1] ||
+                               lookup[i - 1][j];
+ 
+            // Current characters are considered as
+            // matching in two cases
+            // (a) current character of pattern is '?'
+            // (b) characters actually match
+            else if (pattern[j - 1] == '?' ||
+                    str[i - 1] == pattern[j - 1])
+                lookup[i][j] = lookup[i - 1][j - 1];
+ 
+            // If characters don't match
+            else lookup[i][j] = 0;
+        }
+    }
+ 
+    return lookup[n][m];
+     
+}

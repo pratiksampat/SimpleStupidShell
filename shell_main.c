@@ -6,6 +6,9 @@
 		piping
 		history
 		IO redirection
+		Wildcards
+			Usage : ls *.c		// Matches all the c files
+					ls *hell* 	// Matches all files that has hell in between like shell.c, shell_main.o etc
 		Alias 
 			Usage : alias <command to alias> <aliased command>
 					alias show // to show the aliased 
@@ -191,9 +194,9 @@ int main(){
 					printf("exit\n");
 					exit(0);
 				}
-				// else if(strcmp(params[0],"ls")==0){
-				//     listDir(params,paramCount);
-				// }
+				else if(strcmp(params[0],"ls")==0){
+				    listDir(params,paramCount);
+				}
 				else if(strncmp(params[0],"history",7)==0){
 					if(paramCount ==0){
 						for( int i=0; i<hisIndex; i++){
