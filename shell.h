@@ -57,7 +57,8 @@ void _printPerm(struct stat mystat);
 void clr();
 void changeDir(char **params, int paramCount);
 void call(char *command);
-void listDir(char **params, int paramCount);
+void listDir(char **params, int paramCount, char *infile, char *outfile);
 int wildMatch(char *str, char *pattern, int n, int m);
+void _writePerm(struct stat mystat,int outfd);
 
 #endif

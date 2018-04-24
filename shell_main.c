@@ -195,7 +195,7 @@ int main(){
 					exit(0);
 				}
 				else if(strcmp(params[0],"ls")==0){
-				    listDir(params,paramCount);
+				    listDir(params,paramCount,infile,outfile);
 				}
 				else if(strncmp(params[0],"history",7)==0){
 					if(paramCount ==0){
@@ -310,16 +310,16 @@ int main(){
 						int tempfd;
 						if(outfile[0]!='\0'){
 							outFlag = 1;
-							outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+							outfd = open(outfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 							dup2(outfd, 1);
 						}
 						if(infile[0]!='\0'){
 							inFlag = 1;
-							infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+							infd = open(infile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 							dup2(infd, 0);
 						}
 						 if(!fork()){ //write to a temporary file will be used for network comm
-							tempfd = open(".temp", O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+							tempfd = open(".temp", O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 							write(tempfd,"Given command : ",16);
 							write(tempfd, command, input_len);
 							write(tempfd,"\n",1);

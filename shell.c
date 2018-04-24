@@ -99,13 +99,13 @@ void pipeThis(char *command, char **params, int paramCount, char *infile, char *
 					if(outfile[0]!='\0'){
 						perror("OUT\n");
 						outFlag = 1;
-						outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+						outfd = open(outfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 						dup2(outfd, pd[1]); // output it to a file
 					}
 					if(infile[0]!='\0'){
 						perror("IN\n");
 						inFlag = 1;
-						infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+						infd = open(infile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 						dup2(infd, pd[0]);
 					}
 					int status = execvp(tempParams[0],tempParams);
@@ -135,12 +135,12 @@ void pipeThis(char *command, char **params, int paramCount, char *infile, char *
 		// }
 		if(outfile[0]!='\0'){
 			outFlag = 1;
-			outfd = open(outfile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+			outfd = open(outfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 			dup2(outfd, 1);
 		}
 		if(infile[0]!='\0'){
 			inFlag = 1;
-			infd = open(infile, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+			infd = open(infile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
 			dup2(infd, 0);
 		}
 		int status = execvp(tempParams[0],tempParams);
@@ -172,6 +172,19 @@ void _printPerm(struct stat mystat){
 	printf((mystat.st_mode & S_IROTH) ? "r" : "-");
 	printf((mystat.st_mode & S_IWOTH) ? "w" : "-");
 	printf((mystat.st_mode & S_IXOTH) ? "x" : "-");
+}
+
+void _writePerm(struct stat mystat,int outfd){
+	write(outfd,(S_ISDIR(mystat.st_mode)) ? "d" : "-",1);
+	write(outfd,(mystat.st_mode & S_IRUSR) ? "r" : "-",1);
+	write(outfd,(mystat.st_mode & S_IWUSR) ? "w" : "-",1);
+	write(outfd,(mystat.st_mode & S_IXUSR) ? "x" : "-",1);
+	write(outfd,(mystat.st_mode & S_IRGRP) ? "r" : "-",1);
+	write(outfd,(mystat.st_mode & S_IWGRP) ? "w" : "-",1);
+	write(outfd,(mystat.st_mode & S_IXGRP) ? "x" : "-",1);
+	write(outfd,(mystat.st_mode & S_IROTH) ? "r" : "-",1);
+	write(outfd,(mystat.st_mode & S_IWOTH) ? "w" : "-",1);
+	write(outfd,(mystat.st_mode & S_IXOTH) ? "x" : "-",1);
 }
 
 void call(char *command){
@@ -207,10 +220,18 @@ void changeDir(char **params, int paramCount){
 
 
 	// Commented out this implimentation as got execvp to work - may come back to this for regex (maybe not)
-void listDir(char **params, int paramCount){
+void listDir(char **params, int paramCount, char *infile, char *outfile){
     DIR *dir;
     struct dirent *dp;
     struct stat mystat;
+	int outFlag = 0;
+	int outfd;
+	
+	if(outfile[0]!='\0'){
+		outFlag = 1;
+		outfd = open(outfile, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	}
+
     char *cwd = getcwd(buf,sizeof(buf));
     dir = opendir(cwd);
     if(paramCount == 0){
@@ -218,14 +239,18 @@ void listDir(char **params, int paramCount){
         while ((dp=readdir(dir)) != NULL) {
             if(dp->d_name[0]!='.'){
                 count ++;
-                printf("%s\t",dp->d_name);
+				if(outFlag){
+					write(outfd,dp->d_name,strlen(dp->d_name));
+					write(outfd,"\t",1);
+					continue;
+				}
+				printf("%s\t",dp->d_name);
             }
-            // if(count==3){
-            //     printf("\n");
-            //     count = 0;
-            // }
         }
         printf("\n");
+		if(outFlag){
+			write(outfd,"\n",1);
+		}
     }
     else if(paramCount >= 1){
         if(strcmp(params[1],"-l") == 0 || strcmp(params[1],"-lu") == 0 ){
@@ -244,29 +269,61 @@ void listDir(char **params, int paramCount){
 					
                     if(params[2][0]!='\0'){
                         if(wildMatch(dp->d_name,params[2],strlen(dp->d_name),strlen(params[2])) == 1){
-                            _printPerm(mystat);
+							if(outFlag){
+								_writePerm(mystat,outfd);
+								write(outfd," ",1);
+								write(outfd,pw->pw_name,strlen(pw->pw_name));
+								write(outfd," ",1);
+								write(outfd,gr->gr_name,strlen(gr->gr_name));
+								write(outfd," ",1);
+								write(outfd,mtime,strlen(mtime));
+								write(outfd," ",1);
+								write(outfd,dp->d_name,strlen(dp->d_name));
+								write(outfd,"\n",1);
+								continue;
+							}
+							_printPerm(mystat);
                             printf(" %ld %s %s %ld %s %s\n",mystat.st_nlink,pw->pw_name,gr->gr_name,mystat.st_size,mtime,dp->d_name);
                         }
                     }
                     else{
-                        _printPerm(mystat);
+						_writePerm(mystat,outfd);
+						if(outFlag){
+								write(outfd,pw->pw_name,strlen(pw->pw_name));
+								write(outfd," ",1);
+								write(outfd,gr->gr_name,strlen(gr->gr_name));
+								write(outfd," ",1);
+								write(outfd,mtime,strlen(mtime));
+								write(outfd," ",1);
+								write(outfd,dp->d_name,strlen(dp->d_name));
+								write(outfd,"\n",1);
+								continue;
+							}
+						_printPerm(mystat);
                         printf(" %ld %s %s %ld %s %s\n",mystat.st_nlink,pw->pw_name,gr->gr_name,mystat.st_size,mtime,dp->d_name);
 
                     }
                 }
             }
-            printf("\n");
         }
         else{
             while ((dp=readdir(dir)) != NULL) {
                 if(dp->d_name[0]!='.'){
                     if(wildMatch(dp->d_name,params[1],strlen(dp->d_name),strlen(params[1])) == 1){
+						if(outFlag){
+							write(outfd,dp->d_name,strlen(dp->d_name));
+							write(outfd,"\t",1);
+							continue;
+						}
                         printf("%s\n",dp->d_name);
                     }
                 }
             }
+			write(outfd,"\n",1);
         }
     }
+	if(outFlag)
+			close(outfd);
 }
 
 int wildMatch(char *str, char *pattern, int n, int m){
