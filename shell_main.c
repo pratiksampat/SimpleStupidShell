@@ -58,7 +58,58 @@ int main(){
 	for(int i=0; i<MAX_PARAM_LENGTH; i++){
 		aliasedList[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
 	}
+	_flushParams(originalList);
+	_flushParams(aliasedList);
 
+	char *str = malloc(100);
+
+	char **aliaParams;
+	//2 parameters of length 64
+	aliaParams = (char **)malloc(2 * sizeof(char *));
+	for(int i=0; i<MAX_PARAM_LENGTH; i++){
+		params[i] = (char *)malloc(MAX_COMMAND_LENGTH * sizeof(char));
+	}
+
+	FILE *fp;
+	char * line = NULL;
+    size_t len = 0;
+    ssize_t read;
+	//_flushParams(aliaParams);
+	fp = fopen(".alia","r");
+	if(fp != NULL){
+		while ((read = getline(&line, &len, fp)) != -1) {
+			printf("Retrieved line of length %zu :\n", read);
+			printf("%s", line);
+			int flag = 0;
+			for(int i=0, j=0; i<read; i++){
+				
+				if(!flag){
+					if(line[i] == '=')
+						flag = 1;
+					else if(line[i] != '\n')
+						originalList[aliasIndex][i] = line[i];
+						 
+					
+				}
+				else{
+					//printf("ENtered\n");
+					if(line[i]!='\n'){
+						aliasedList[aliasIndex][j] = line[i];
+						j++;
+					}
+					
+				}
+			}
+			aliasIndex++;
+		}
+		for(int i=0; i<aliasIndex; i++){
+			printf("%s\n%s\n",originalList[i],aliasedList[i]);
+		}
+		fclose(fp);
+		if (line)
+			free(line);
+	}
+	
 	//Log data for upto 50 commands
 	myLog.input = (char **)malloc(50 * sizeof(char *));
 	for(int i=0; i<MAX_PARAM_LENGTH; i++){
@@ -240,16 +291,56 @@ int main(){
 						}
 					}
 					else{
-						char *temp = (char *)malloc(64 * sizeof(char));
+						int flag = 0;
+						char *temp = (char *)calloc(64 , sizeof(char));
 						for(int i=1; i<paramCount; i++){
 							strcat(temp,params[i]);
 							strcat(temp," ");
 						}
-						strcpy(originalList[aliasIndex],temp);
-						strcpy(aliasedList[aliasIndex],params[paramCount]);
-						printf("%15s%15s\n","Original","Aliased");
-						printf("%15s%15s\n",originalList[aliasIndex],aliasedList[aliasIndex]);
-						aliasIndex++;
+						if(aliasIndex!=0){
+							int in = _searchCommand(aliasedList,params[paramCount],aliasIndex);
+							if(in != -1){
+								printf("Alias Already exists\n");
+								flag = 0;
+							}
+							else{
+								strcpy(originalList[aliasIndex],temp);
+								strcpy(aliasedList[aliasIndex],params[paramCount]);
+								printf("%15s%15s\n","Original","Aliased");
+								printf("%15s%15s\n",originalList[aliasIndex],aliasedList[aliasIndex]);
+								aliasIndex ++;	
+								flag = 1;
+							}
+						}
+						else{
+							strcpy(originalList[aliasIndex],temp);
+							strcpy(aliasedList[aliasIndex],params[paramCount]);
+							printf("%15s%15s\n","Original","Aliased");
+							printf("%15s%15s\n",originalList[aliasIndex],aliasedList[aliasIndex]);
+							aliasIndex ++;	
+							flag = 1;
+						}
+						free(temp);
+						temp = NULL;
+						int aliaFile = open(".alia", O_RDWR | O_CREAT | O_APPEND, S_IRUSR | S_IWUSR);  
+						if(flag){
+							strcpy(str,originalList[aliasIndex-1]);
+							strcat(str,"=");
+							strcat(str,aliasedList[aliasIndex-1]);
+							strcat(str,"\n");
+							printf("%s",str);
+							long len = strlen(str);
+							write(aliaFile,originalList[aliasIndex-1],strlen(originalList[aliasIndex-1]));
+							write(aliaFile,"=",1);
+							write(aliaFile,aliasedList[aliasIndex-1],strlen(aliasedList[aliasIndex-1]));
+							write(aliaFile,"\n",1);
+							for(int i=0; i<100; i++){
+								str[i] = '\0';
+							}
+						}
+						close(aliaFile);
+						//_flushParams(aliasedList);
+						//_flushParams(originalList);
 					}
 				}
 				else if(strncmp(params[0],"logs",3) == 0){

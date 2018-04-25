@@ -61,7 +61,8 @@ int _search(char *command,char c){
 
 int _searchCommand(char **history, char *command,int len){
 	for(int i=0; i<len; i++){
-		if(strcmp(history[i],command)==0)
+		//printf("History : ~%s~ Command : ~%s~\n",history[i],command);
+		if(strncmp(history[i],command,strlen(history[i]))==0)
 			return i;
 	}
 	return -1;
