@@ -11,12 +11,14 @@
 					ls *hell* 	// Matches all files that has hell in between like shell.c, shell_main.o etc
 		Alias 
 			Usage : alias <command to alias> <aliased command>
-					alias show // to show the aliased 
+					alias show // to show the aliased command list
 		logs
 			Usage :
 				logs begin
 				logs end
 				logs show
+		hypercat
+			cat pdf files
 */
 #include "shell.h"
 
@@ -372,6 +374,19 @@ int main(){
 						printf("Invalid Usage of logs\n");
 					}
 				}
+				else if(strncmp(params[0],"cat",3) == 0){
+					if( command[strlen(command)-3] == 'p' && command[strlen(command)-2] == 'd' && command[strlen(command)-1] == 'f'){
+						if(!fork()){
+							execlp("python3", "python3", "hypercat.py", params[1], (char*) NULL);
+						}
+						else{
+							wait(0);
+						}
+					}
+					else{
+						goto regular;
+					}
+				}
 				else if(params[0][0] == '\n'){ // just the enter key pressed
 					continue;
 				}
@@ -384,6 +399,7 @@ int main(){
 				//     }
 				// }
 				else{
+					regular:
 					free(params[paramCount+1]);
 					params[paramCount+1] = NULL;
 					if(strncmp(params[0],"env",3) == 0)
@@ -391,6 +407,16 @@ int main(){
 					if(logFlag){
 						gettimeofday(&start, NULL);
 					}
+					// if(strncmp(params[0],"cat",3) == 0){
+					// 	if( command[strlen(command)-3] == 'p' && command[strlen(command)-2] == 'd' && command[strlen(command)-1] == 'f'){
+					// 		if(!fork()){
+					// 			execlp("python3", "python3", "hypercat.py", params[1], (char*) NULL);
+					// 		}
+					// 		else{
+					// 			wait(0);
+					// 		}
+					// 	}
+					// }
 					pid_t pid;
 					if(pid=fork() == 0){
 						//child
