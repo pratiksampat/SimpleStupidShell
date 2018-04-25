@@ -82,7 +82,7 @@ int _commandToParams(char *command, char **params, char split){
 
 The structure essentially looks as below : 
 
-![](struct.png)
+![](https://docs.google.com/drawings/d/sN59ptAL_H8ENlrdTlwqBlg/image?w=553&h=475&rev=331&ac=1)
 
 ## Executing a single command
 
