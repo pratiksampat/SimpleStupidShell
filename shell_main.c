@@ -19,6 +19,9 @@
 				logs show
 		hypercat
 			cat pdf files
+		Editor With networking capabilites
+			editor host <filename>
+			editor listen <ip addr of host>
 */
 #include "shell.h"
 
@@ -385,6 +388,24 @@ int main(){
 					}
 					else{
 						goto regular;
+					}
+				}
+				else if(strncmp(params[0],"editor",5) == 0){
+					if(strncmp(params[1],"host",4) == 0){
+						if(!fork()){
+							execl("./host", "host",params[2],NULL);
+						}
+						else{
+							wait(0);
+						}
+					}
+					else if(strncmp(params[1],"listen",6) == 0){
+						if(!fork()){
+							execl("./client", "client",params[2],NULL);
+						}
+						else{
+							wait(0);
+						}
 					}
 				}
 				else if(params[0][0] == '\n'){ // just the enter key pressed

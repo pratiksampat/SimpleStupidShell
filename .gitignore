@@ -1,5 +1,9 @@
 shell
+host
+client
 shell_main.o
 shell.o
+host.o
+client.o
 .temp
 .alia
