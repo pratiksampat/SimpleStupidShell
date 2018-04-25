@@ -7,3 +7,4 @@ host.o
 client.o
 .temp
 .alia
+struct.png
